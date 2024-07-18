@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -36,19 +37,95 @@ func main() {
 	builds, _ := getBuilds(savesPath)
 	selectedBuild := ""
 	var rollbackBtn *widget.Button
-	hello := widget.NewLabel(currentBuild)
-	buildSelector := widget.NewSelect(builds, func(value string) {
+	var hello *widget.Label
+	var addBtn *widget.Button
+	var buildSelector *widget.Select
+	var loadBtn *widget.Button
+	var mainContainer *fyne.Container
+
+	hello = widget.NewLabel("Currently Loaded: " + currentBuild)
+	buildSelector = widget.NewSelect(builds, func(value string) {
 		log.Println("Select set to", value)
 		selectedBuild = value
 		rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
 	})
+	// TODO: Add feature to branch from different saves.
+	addBtn = widget.NewButton("Add New Build", func() {
+		var popup *widget.PopUp
+		buildNameInput := widget.NewEntry()
+		//buildNameInput.SetPlaceHolder("Enter Build Name...")
 
-	addBtn := widget.NewButton("Add New Build", func() {
+		//setAsActive := widget.NewRadioGroup([]string{"Load New Build"}, func(value string) {
+		//	log.Println("Select set to", value)
+		//})
+
+		popup = widget.NewModalPopUp(container.NewVBox(
+			&widget.Form{
+				Items: []*widget.FormItem{
+					{Text: "Build Name:", Widget: buildNameInput},
+					//{Widget: setAsActive},
+				},
+				OnSubmit: func() {
+					defer popup.Hide()
+					newBuildName := strings.Trim(buildNameInput.Text, " ")
+					// TODO: Handle user notification in error cases
+					if newBuildName == "" || strings.Contains(newBuildName, "\\") {
+						return
+					}
+					for _, build := range builds {
+						if build == newBuildName {
+							return
+						}
+					}
+					err := os.Mkdir(savesPath+"\\"+newBuildName, 0777)
+					if err != nil {
+						return
+					}
+					builds = append(builds, newBuildName)
+					err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2", savesPath+"\\"+newBuildName+"\\ER0000.sl2")
+					if err != nil {
+						log.Fatal(err)
+					}
+					err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2.bak", savesPath+"\\"+newBuildName+"\\ER0000.sl2.bak")
+					if err != nil {
+						log.Fatal(err)
+					}
+					err = copyFileContents(savesPath+"\\ROOT\\steam_autocloud.vdf", savesPath+"\\"+newBuildName+"\\steam_autocloud.vdf")
+					if err != nil {
+						log.Fatal(err)
+					}
+					buildSelector = widget.NewSelect(builds, func(value string) {
+						log.Println("Select set to", value)
+						selectedBuild = value
+						rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
+					})
+					buildSelector.SetSelected(newBuildName)
+					selectedBuild = newBuildName
+					mainContainer = container.NewVBox(
+						addBtn,
+						buildSelector,
+						hello,
+						loadBtn,
+						rollbackBtn,
+					)
+					w.SetContent(mainContainer)
+					log.Println(newBuildName)
+				},
+				OnCancel: func() {
+					popup.Hide()
+				},
+			},
+		), w.Canvas())
+
+		popup.Show()
 
 	})
-	loadBtn := widget.NewButton("Load", func() {
-		hello.SetText(selectedBuild)
+	loadBtn = widget.NewButton("Load", func() {
 		// TODO: Handle case of current == selected
+		if currentBuild == selectedBuild {
+			return
+		}
+		hello.SetText("Currently Loaded: selectedBuild")
 		err = saveChanges(gameSavePath, savesPath+"\\"+currentBuild)
 		if err != nil {
 			log.Fatal(err)
@@ -79,7 +156,8 @@ func main() {
 		if backupInfo.Size() != currentInfo.Size() {
 			var popup *widget.PopUp
 			popup = widget.NewModalPopUp(container.NewVBox(
-				canvas.NewText("Back up file is invalid. Unable to roll back to previous save.", color.White),
+
+				canvas.NewText("Unable to rollback", color.White),
 				widget.NewButton("Close", func() {
 					popup.Hide()
 				}),
@@ -94,7 +172,7 @@ func main() {
 
 	})
 
-	mainCanvas := container.NewVBox(
+	mainContainer = container.NewVBox(
 		addBtn,
 		buildSelector,
 		hello,
@@ -103,7 +181,7 @@ func main() {
 	)
 
 	buildSelector.SetSelected("ROOT")
-	w.SetContent(mainCanvas)
+	w.SetContent(mainContainer)
 	w.Resize(fyne.NewSize(400, 300))
 	w.ShowAndRun()
 }
