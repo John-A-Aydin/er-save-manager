@@ -34,24 +34,6 @@ func main() {
 	builds, _ := getBuilds(cfg.UserSavePath)
 	selectedBuild := ""
 
-	//test, err := readConfig()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//log.Println(test.GameSavePath)
-	//log.Println(test.cfg.UserSavePath)
-	//log.Println(test.CurrentBuild)
-	//
-	//c := Config{
-	//	GameSavePath: "Hello",
-	//	cfg.UserSavePath: "World",
-	//	CurrentBuild: "!",
-	//}
-	//err = writeConfig(c)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-
 	var settingsBtn *widget.Button
 	var rollbackBtn *widget.Button
 	var loadedBuildIndicator *widget.Label
@@ -186,7 +168,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = updateCurrentBuild(cfg.UserSavePath, cfg.CurrentBuild)
+		err = writeConfig(cfg)
 		if err != nil {
 			log.Fatal(err)
 		}
