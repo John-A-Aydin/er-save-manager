@@ -18,9 +18,10 @@ import (
 
 func main() {
 	a := app.New()
+	icon, err := fyne.LoadResourceFromPath("assets\\icon.png")
+	a.SetIcon(icon)
 	w := a.NewWindow("Elden Ring Save Manager")
-
-	err := godotenv.Load()
+	err = godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
@@ -32,16 +33,50 @@ func main() {
 		log.Fatal(err)
 	}
 	currentBuild := string(data)
-
 	// TODO: Handle error, likely dir not found
 	builds, _ := getBuilds(savesPath)
 	selectedBuild := ""
+
+	var settingsBtn *widget.Button
 	var rollbackBtn *widget.Button
 	var hello *widget.Label
 	var addBtn *widget.Button
 	var buildSelector *widget.Select
 	var loadBtn *widget.Button
 	var mainContainer *fyne.Container
+	//var currentBuildSelector *widget.Select
+
+	gameSavePathEntry := widget.NewEntry()
+	gameSavePathEntry.SetPlaceHolder(gameSavePath)
+	playerSavePathEntry := widget.NewEntry()
+	playerSavePathEntry.SetPlaceHolder(savesPath)
+	settingsSelectedBuild := currentBuild
+	currentBuildSelector := widget.NewSelect(builds, func(value string) {
+		log.Println("Select set to", value)
+		settingsSelectedBuild = value
+	})
+	currentBuildSelector.SetSelected(currentBuild)
+	settingsForm := widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Game Save Path:", Widget: gameSavePathEntry},
+			{Text: "Your Save Path:", Widget: playerSavePathEntry},
+			{Text: "Currently Loaded Build:", Widget: currentBuildSelector},
+		},
+		OnSubmit: func() {
+			log.Println(gameSavePathEntry.Text)
+			currentBuildSelector.Selected = settingsSelectedBuild
+			hello.SetText("Currently Loaded: " + settingsSelectedBuild)
+			w.SetContent(mainContainer)
+		},
+		OnCancel: func() {
+			w.SetContent(mainContainer)
+		},
+	}
+	settingsForm.SubmitText = "Save"
+
+	settingsBtn = widget.NewButton("Settings", func() {
+		w.SetContent(&settingsForm)
+	})
 
 	hello = widget.NewLabel("Currently Loaded: " + currentBuild)
 	buildSelector = widget.NewSelect(builds, func(value string) {
@@ -58,63 +93,65 @@ func main() {
 		//setAsActive := widget.NewRadioGroup([]string{"Load New Build"}, func(value string) {
 		//	log.Println("Select set to", value)
 		//})
+		form := &widget.Form{
+			Items: []*widget.FormItem{
+				{Text: "Build Name:", Widget: buildNameInput},
+				//{Widget: setAsActive},
+			},
+			OnSubmit: func() {
+				defer popup.Hide()
+				newBuildName := strings.Trim(buildNameInput.Text, " ")
+				// TODO: Handle user notification in error cases
+				if newBuildName == "" || strings.Contains(newBuildName, "\\") {
+					return
+				}
+				for _, build := range builds {
+					if build == newBuildName {
+						return
+					}
+				}
+				err := os.Mkdir(savesPath+"\\"+newBuildName, 0777)
+				if err != nil {
+					return
+				}
+				builds = append(builds, newBuildName)
+				err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2", savesPath+"\\"+newBuildName+"\\ER0000.sl2")
+				if err != nil {
+					log.Fatal(err)
+				}
+				err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2.bak", savesPath+"\\"+newBuildName+"\\ER0000.sl2.bak")
+				if err != nil {
+					log.Fatal(err)
+				}
+				err = copyFileContents(savesPath+"\\ROOT\\steam_autocloud.vdf", savesPath+"\\"+newBuildName+"\\steam_autocloud.vdf")
+				if err != nil {
+					log.Fatal(err)
+				}
+				buildSelector = widget.NewSelect(builds, func(value string) {
+					log.Println("Select set to", value)
+					selectedBuild = value
+					rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
+				})
+				buildSelector.SetSelected(newBuildName)
+				selectedBuild = newBuildName
+				mainContainer = container.NewVBox(
+					addBtn,
+					buildSelector,
+					hello,
+					loadBtn,
+					rollbackBtn,
+				)
+				w.SetContent(mainContainer)
+				log.Println(newBuildName)
+			},
+			OnCancel: func() {
+				popup.Hide()
+			},
+		}
+		form.SubmitText = "Create"
 
 		popup = widget.NewModalPopUp(container.NewVBox(
-			&widget.Form{
-				Items: []*widget.FormItem{
-					{Text: "Build Name:", Widget: buildNameInput},
-					//{Widget: setAsActive},
-				},
-				OnSubmit: func() {
-					defer popup.Hide()
-					newBuildName := strings.Trim(buildNameInput.Text, " ")
-					// TODO: Handle user notification in error cases
-					if newBuildName == "" || strings.Contains(newBuildName, "\\") {
-						return
-					}
-					for _, build := range builds {
-						if build == newBuildName {
-							return
-						}
-					}
-					err := os.Mkdir(savesPath+"\\"+newBuildName, 0777)
-					if err != nil {
-						return
-					}
-					builds = append(builds, newBuildName)
-					err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2", savesPath+"\\"+newBuildName+"\\ER0000.sl2")
-					if err != nil {
-						log.Fatal(err)
-					}
-					err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2.bak", savesPath+"\\"+newBuildName+"\\ER0000.sl2.bak")
-					if err != nil {
-						log.Fatal(err)
-					}
-					err = copyFileContents(savesPath+"\\ROOT\\steam_autocloud.vdf", savesPath+"\\"+newBuildName+"\\steam_autocloud.vdf")
-					if err != nil {
-						log.Fatal(err)
-					}
-					buildSelector = widget.NewSelect(builds, func(value string) {
-						log.Println("Select set to", value)
-						selectedBuild = value
-						rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
-					})
-					buildSelector.SetSelected(newBuildName)
-					selectedBuild = newBuildName
-					mainContainer = container.NewVBox(
-						addBtn,
-						buildSelector,
-						hello,
-						loadBtn,
-						rollbackBtn,
-					)
-					w.SetContent(mainContainer)
-					log.Println(newBuildName)
-				},
-				OnCancel: func() {
-					popup.Hide()
-				},
-			},
+			form,
 		), w.Canvas())
 
 		popup.Show()
@@ -125,7 +162,7 @@ func main() {
 		if currentBuild == selectedBuild {
 			return
 		}
-		hello.SetText("Currently Loaded: selectedBuild")
+		hello.SetText("Currently Loaded: " + selectedBuild)
 		err = saveChanges(gameSavePath, savesPath+"\\"+currentBuild)
 		if err != nil {
 			log.Fatal(err)
@@ -173,6 +210,7 @@ func main() {
 	})
 
 	mainContainer = container.NewVBox(
+		settingsBtn,
 		addBtn,
 		buildSelector,
 		hello,
@@ -183,6 +221,7 @@ func main() {
 	buildSelector.SetSelected("ROOT")
 	w.SetContent(mainContainer)
 	w.Resize(fyne.NewSize(400, 300))
+
 	w.ShowAndRun()
 }
 
