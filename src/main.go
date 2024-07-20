@@ -6,56 +6,68 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
-	"github.com/joho/godotenv"
 	"image/color"
-	"io"
-	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 )
+
+type Config struct {
+	GameSavePath string `yaml:"game-save-path"`
+	UserSavePath string `yaml:"user-save-path"`
+	CurrentBuild string `yaml:"current-build"`
+}
 
 func main() {
 	a := app.New()
 	icon, err := fyne.LoadResourceFromPath("assets\\icon.png")
 	a.SetIcon(icon)
 	w := a.NewWindow("Elden Ring Save Manager")
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 
-	gameSavePath := os.Getenv("GAME_SAVE_PATH")
-	savesPath := os.Getenv("SAVE_FILES")
-	data, err := os.ReadFile(savesPath + "\\ersm.cfg")
+	cfg, err := readConfig()
 	if err != nil {
+		log.Println("Unable to read config file")
 		log.Fatal(err)
 	}
-	currentBuild := string(data)
-	// TODO: Handle error, likely dir not found
-	builds, _ := getBuilds(savesPath)
+
+	//// TODO: Handle error, likely dir not found
+	builds, _ := getBuilds(cfg.UserSavePath)
 	selectedBuild := ""
+
+	//test, err := readConfig()
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//log.Println(test.GameSavePath)
+	//log.Println(test.cfg.UserSavePath)
+	//log.Println(test.CurrentBuild)
+	//
+	//c := Config{
+	//	GameSavePath: "Hello",
+	//	cfg.UserSavePath: "World",
+	//	CurrentBuild: "!",
+	//}
+	//err = writeConfig(c)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	var settingsBtn *widget.Button
 	var rollbackBtn *widget.Button
-	var hello *widget.Label
+	var loadedBuildIndicator *widget.Label
 	var addBtn *widget.Button
 	var buildSelector *widget.Select
 	var loadBtn *widget.Button
 	var mainContainer *fyne.Container
-	//var currentBuildSelector *widget.Select
 
 	gameSavePathEntry := widget.NewEntry()
-	gameSavePathEntry.SetPlaceHolder(gameSavePath)
+	gameSavePathEntry.SetPlaceHolder(cfg.GameSavePath)
 	playerSavePathEntry := widget.NewEntry()
-	playerSavePathEntry.SetPlaceHolder(savesPath)
-	settingsSelectedBuild := currentBuild
+	playerSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
 	currentBuildSelector := widget.NewSelect(builds, func(value string) {
 		log.Println("Select set to", value)
-		settingsSelectedBuild = value
 	})
-	currentBuildSelector.SetSelected(currentBuild)
+	currentBuildSelector.SetSelected(cfg.CurrentBuild)
 	settingsForm := widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Game Save Path:", Widget: gameSavePathEntry},
@@ -64,8 +76,9 @@ func main() {
 		},
 		OnSubmit: func() {
 			log.Println(gameSavePathEntry.Text)
-			currentBuildSelector.Selected = settingsSelectedBuild
-			hello.SetText("Currently Loaded: " + settingsSelectedBuild)
+			cfg.CurrentBuild = currentBuildSelector.Selected
+			loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
+			buildSelector.SetSelected(cfg.CurrentBuild)
 			w.SetContent(mainContainer)
 		},
 		OnCancel: func() {
@@ -78,7 +91,7 @@ func main() {
 		w.SetContent(&settingsForm)
 	})
 
-	hello = widget.NewLabel("Currently Loaded: " + currentBuild)
+	loadedBuildIndicator = widget.NewLabel("Currently Loaded: " + cfg.CurrentBuild)
 	buildSelector = widget.NewSelect(builds, func(value string) {
 		log.Println("Select set to", value)
 		selectedBuild = value
@@ -110,20 +123,20 @@ func main() {
 						return
 					}
 				}
-				err := os.Mkdir(savesPath+"\\"+newBuildName, 0777)
+				err := os.Mkdir(cfg.UserSavePath+"\\"+newBuildName, 0777)
 				if err != nil {
 					return
 				}
 				builds = append(builds, newBuildName)
-				err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2", savesPath+"\\"+newBuildName+"\\ER0000.sl2")
+				err = copyFileContents(cfg.UserSavePath+"\\ROOT\\ER0000.sl2", cfg.UserSavePath+"\\"+newBuildName+"\\ER0000.sl2")
 				if err != nil {
 					log.Fatal(err)
 				}
-				err = copyFileContents(savesPath+"\\ROOT\\ER0000.sl2.bak", savesPath+"\\"+newBuildName+"\\ER0000.sl2.bak")
+				err = copyFileContents(cfg.UserSavePath+"\\ROOT\\ER0000.sl2.bak", cfg.UserSavePath+"\\"+newBuildName+"\\ER0000.sl2.bak")
 				if err != nil {
 					log.Fatal(err)
 				}
-				err = copyFileContents(savesPath+"\\ROOT\\steam_autocloud.vdf", savesPath+"\\"+newBuildName+"\\steam_autocloud.vdf")
+				err = copyFileContents(cfg.UserSavePath+"\\ROOT\\steam_autocloud.vdf", cfg.UserSavePath+"\\"+newBuildName+"\\steam_autocloud.vdf")
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -137,7 +150,7 @@ func main() {
 				mainContainer = container.NewVBox(
 					addBtn,
 					buildSelector,
-					hello,
+					loadedBuildIndicator,
 					loadBtn,
 					rollbackBtn,
 				)
@@ -159,27 +172,32 @@ func main() {
 	})
 	loadBtn = widget.NewButton("Load", func() {
 		// TODO: Handle case of current == selected
-		if currentBuild == selectedBuild {
+		if cfg.CurrentBuild == selectedBuild {
 			return
 		}
-		hello.SetText("Currently Loaded: " + selectedBuild)
-		err = saveChanges(gameSavePath, savesPath+"\\"+currentBuild)
+		loadedBuildIndicator.SetText("Currently Loaded: " + selectedBuild)
+		currentBuildSelector.SetSelected(selectedBuild)
+		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
 		}
-		currentBuild = selectedBuild
-		err = updateCurrentBuild(savesPath, currentBuild)
+		cfg.CurrentBuild = selectedBuild
+		err = writeConfig(cfg)
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = loadFiles(savesPath+"\\"+currentBuild, gameSavePath)
+		err = updateCurrentBuild(cfg.UserSavePath, cfg.CurrentBuild)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = loadFiles(cfg.UserSavePath+"\\"+cfg.CurrentBuild, cfg.GameSavePath)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 	})
 	rollbackBtn = widget.NewButton("Rollback to Previous Save", func() {
-		prefix := savesPath + "\\" + selectedBuild
+		prefix := cfg.UserSavePath + "\\" + selectedBuild
 		backupInfo, err := os.Stat(prefix + "\\ERSM_backup.sl2")
 		if err != nil {
 			log.Println(err)
@@ -213,124 +231,14 @@ func main() {
 		settingsBtn,
 		addBtn,
 		buildSelector,
-		hello,
+		loadedBuildIndicator,
 		loadBtn,
 		rollbackBtn,
 	)
 
-	buildSelector.SetSelected("ROOT")
+	buildSelector.SetSelected(cfg.CurrentBuild)
 	w.SetContent(mainContainer)
 	w.Resize(fyne.NewSize(400, 300))
 
 	w.ShowAndRun()
-}
-
-func getBuilds(path string) ([]string, error) {
-	builds := []string{"ROOT"}
-	err := filepath.WalkDir(path, func(dirPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			log.Fatal(err)
-		}
-		if d.IsDir() && dirPath != path && d.Name() != "ROOT" {
-			builds = append(builds, d.Name())
-		}
-		return err
-	})
-	return builds, err
-}
-
-func saveChanges(src string, dest string) (err error) {
-	// Backup previous save
-	// TODO: Remove unnecessary blocking
-	err = copyFileContents(dest+"\\ER0000.sl2", dest+"\\ERSM_backup.sl2")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	err = copyFileContents(dest+"\\ER0000.sl2.bak", dest+"\\ERSM_backup.sl2.bak")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	err = copyFileContents(dest+"\\steam_autocloud.vdf", dest+"\\ERSM_steam.vdf")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	// Moving files
-	err = copyFileContents(src+"\\ER0000.sl2", dest+"\\ER0000.sl2")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	err = copyFileContents(src+"\\ER0000.sl2.bak", dest+"\\ER0000.sl2.bak")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	err = copyFileContents(src+"\\steam_autocloud.vdf", dest+"\\steam_autocloud.vdf")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	return
-}
-
-func loadFiles(src string, dest string) (err error) {
-	err = copyFileContents(src+"\\ER0000.sl2", dest+"\\ER0000.sl2")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	err = copyFileContents(src+"\\ER0000.sl2.bak", dest+"\\ER0000.sl2.bak")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	err = copyFileContents(src+"\\steam_autocloud.vdf", dest+"\\steam_autocloud.vdf")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	return
-}
-
-func copyFileContents(src string, dest string) (err error) {
-	in, err := os.Open(src)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer in.Close()
-	out, err := os.Create(dest)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer func() {
-		cerr := out.Close()
-		if err == nil {
-			err = cerr
-		}
-	}()
-	if _, err = io.Copy(out, in); err != nil {
-		log.Println(err)
-		return
-	}
-	err = out.Sync()
-	return
-}
-
-func updateCurrentBuild(savesPath string, value string) (err error) {
-	f, err := os.Create(savesPath + "\\current.ersm")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	_, err = f.WriteString(value)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	return f.Close()
 }
