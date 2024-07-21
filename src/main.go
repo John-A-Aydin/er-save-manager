@@ -32,7 +32,6 @@ func main() {
 
 	//// TODO: Handle error, likely dir not found
 	builds, _ := getBuilds(cfg.UserSavePath)
-	selectedBuild := ""
 
 	var settingsBtn *widget.Button
 	var rollbackBtn *widget.Button
@@ -76,18 +75,13 @@ func main() {
 	loadedBuildIndicator = widget.NewLabel("Currently Loaded: " + cfg.CurrentBuild)
 	buildSelector = widget.NewSelect(builds, func(value string) {
 		log.Println("Select set to", value)
-		selectedBuild = value
 		rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
 	})
 	// TODO: Add feature to branch from different saves.
 	addBtn = widget.NewButton("Add New Build", func() {
 		var popup *widget.PopUp
 		buildNameInput := widget.NewEntry()
-		//buildNameInput.SetPlaceHolder("Enter Build Name...")
 
-		//setAsActive := widget.NewRadioGroup([]string{"Load New Build"}, func(value string) {
-		//	log.Println("Select set to", value)
-		//})
 		form := &widget.Form{
 			Items: []*widget.FormItem{
 				{Text: "Build Name:", Widget: buildNameInput},
@@ -124,11 +118,9 @@ func main() {
 				}
 				buildSelector = widget.NewSelect(builds, func(value string) {
 					log.Println("Select set to", value)
-					selectedBuild = value
 					rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
 				})
 				buildSelector.SetSelected(newBuildName)
-				selectedBuild = newBuildName
 				mainContainer = container.NewVBox(
 					addBtn,
 					buildSelector,
@@ -154,16 +146,16 @@ func main() {
 	})
 	loadBtn = widget.NewButton("Load", func() {
 		// TODO: Handle case of current == selected
-		if cfg.CurrentBuild == selectedBuild {
+		if cfg.CurrentBuild == buildSelector.Selected {
 			return
 		}
-		loadedBuildIndicator.SetText("Currently Loaded: " + selectedBuild)
-		currentBuildSelector.SetSelected(selectedBuild)
+		cfg.CurrentBuild = buildSelector.Selected
+		loadedBuildIndicator.SetText("Currently Loaded: " + buildSelector.Selected)
+		currentBuildSelector.SetSelected(buildSelector.Selected)
 		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
 		}
-		cfg.CurrentBuild = selectedBuild
 		err = writeConfig(cfg)
 		if err != nil {
 			log.Fatal(err)
@@ -179,18 +171,8 @@ func main() {
 
 	})
 	rollbackBtn = widget.NewButton("Rollback to Previous Save", func() {
-		prefix := cfg.UserSavePath + "\\" + selectedBuild
-		backupInfo, err := os.Stat(prefix + "\\ERSM_backup.sl2")
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		currentInfo, err := os.Stat(prefix + "\\ER0000.sl2")
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		if backupInfo.Size() != currentInfo.Size() {
+		err = rollBackSave(cfg.UserSavePath + "\\" + cfg.CurrentBuild)
+		if err != nil && err.Error() == "mismatched file size" {
 			var popup *widget.PopUp
 			popup = widget.NewModalPopUp(container.NewVBox(
 
@@ -202,10 +184,6 @@ func main() {
 			popup.Show()
 			return
 		}
-		// TODO: Handle errors
-		_ = copyFileContents(prefix+"\\ERSM_backup.sl2", prefix+"\\ER0000.sl2")
-		_ = copyFileContents(prefix+"\\ERSM_backup.sl2.bak", prefix+"\\ER0000.sl2.bak")
-		_ = copyFileContents(prefix+"\\ERSM_steam.vdf", prefix+"\\steam_autocloud.vdf")
 
 	})
 

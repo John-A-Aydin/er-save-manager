@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"gopkg.in/yaml.v3"
 	"io"
 	"io/fs"
@@ -86,6 +87,32 @@ func loadFiles(src string, dest string) (err error) {
 		log.Println(err)
 		return
 	}
+	return
+}
+
+func rollBackSave(savePath string) (err error) {
+	backupInfo, err := os.Stat(savePath + "\\" + ErsmFileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	currentInfo, err := os.Stat(savePath + "\\" + MainFileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	if backupInfo.Size() != currentInfo.Size() {
+		return errors.New("mismatched file size")
+	}
+	err = copyFileContents(savePath+"\\"+ErsmFileName, savePath+"\\"+MainFileName)
+	if err != nil {
+		return
+	}
+	err = copyFileContents(savePath+"\\"+ErsmBackupFileName, savePath+"\\"+MainBackupFileName)
+	if err != nil {
+		return
+	}
+	err = copyFileContents(savePath+"\\"+ErsmSteamFileName, savePath+"\\"+MainSteamFileName)
 	return
 }
 
