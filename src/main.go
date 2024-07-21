@@ -8,7 +8,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"image/color"
 	"log"
-	"os"
 	"strings"
 )
 
@@ -52,7 +51,7 @@ func main() {
 	settingsForm := widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Game Save Path:", Widget: gameSavePathEntry},
-			{Text: "Your Save Path:", Widget: playerSavePathEntry},
+			{Text: "User Save Path:", Widget: playerSavePathEntry},
 			{Text: "Currently Loaded Build:", Widget: currentBuildSelector},
 		},
 		OnSubmit: func() {
@@ -99,23 +98,12 @@ func main() {
 						return
 					}
 				}
-				err := os.Mkdir(cfg.UserSavePath+"\\"+newBuildName, 0777)
+				err = addBuild(cfg.UserSavePath, newBuildName)
 				if err != nil {
+					log.Println(err)
 					return
 				}
 				builds = append(builds, newBuildName)
-				err = copyFileContents(cfg.UserSavePath+"\\ROOT\\ER0000.sl2", cfg.UserSavePath+"\\"+newBuildName+"\\ER0000.sl2")
-				if err != nil {
-					log.Fatal(err)
-				}
-				err = copyFileContents(cfg.UserSavePath+"\\ROOT\\ER0000.sl2.bak", cfg.UserSavePath+"\\"+newBuildName+"\\ER0000.sl2.bak")
-				if err != nil {
-					log.Fatal(err)
-				}
-				err = copyFileContents(cfg.UserSavePath+"\\ROOT\\steam_autocloud.vdf", cfg.UserSavePath+"\\"+newBuildName+"\\steam_autocloud.vdf")
-				if err != nil {
-					log.Fatal(err)
-				}
 				buildSelector = widget.NewSelect(builds, func(value string) {
 					log.Println("Select set to", value)
 					rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
@@ -153,10 +141,6 @@ func main() {
 		loadedBuildIndicator.SetText("Currently Loaded: " + buildSelector.Selected)
 		currentBuildSelector.SetSelected(buildSelector.Selected)
 		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = writeConfig(cfg)
 		if err != nil {
 			log.Fatal(err)
 		}

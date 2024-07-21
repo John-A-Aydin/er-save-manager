@@ -167,3 +167,20 @@ func readConfig() (cfg Config, err error) {
 	log.Println(cfg.CurrentBuild)
 	return cfg, err
 }
+
+func addBuild(userSavePath string, newBuildName string) (err error) {
+	err = os.Mkdir(userSavePath+"\\"+newBuildName, 0777)
+	if err != nil {
+		return
+	}
+	err = copyFileContents(userSavePath+"\\ROOT\\"+MainFileName, userSavePath+"\\"+newBuildName+"\\"+MainFileName)
+	if err != nil {
+		return
+	}
+	err = copyFileContents(userSavePath+"\\ROOT\\"+MainBackupFileName, userSavePath+"\\"+newBuildName+"\\"+MainBackupFileName)
+	if err != nil {
+		return
+	}
+	err = copyFileContents(userSavePath+"\\ROOT\\"+MainSteamFileName, userSavePath+"\\"+newBuildName+"\\"+MainSteamFileName)
+	return
+}
