@@ -5,6 +5,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"image/color"
 	"log"
@@ -32,13 +33,12 @@ func main() {
 	//// TODO: Handle error, likely dir not found
 	builds, _ := getBuilds(cfg.UserSavePath)
 
-	var settingsBtn *widget.Button
 	var rollbackBtn *widget.Button
 	var loadedBuildIndicator *widget.Label
-	var addBtn *widget.Button
 	var buildSelector *widget.Select
 	var loadBtn *widget.Button
 	var mainContainer *fyne.Container
+	var toolbar *widget.Toolbar
 
 	gameSavePathEntry := widget.NewEntry()
 	gameSavePathEntry.SetPlaceHolder(cfg.GameSavePath)
@@ -67,71 +67,58 @@ func main() {
 	}
 	settingsForm.SubmitText = "Save"
 
-	settingsBtn = widget.NewButton("Settings", func() {
-		w.SetContent(&settingsForm)
-	})
+	// TODO: Add branching from different saves
+	buildNameInput := widget.NewEntry()
+	addForm := widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Build Name:", Widget: buildNameInput},
+			//{Widget: setAsActive},
+		},
+		OnSubmit: func() {
+			newBuildName := strings.Trim(buildNameInput.Text, " ")
+			// TODO: Handle user notification in error cases
+			if newBuildName == "" || strings.Contains(newBuildName, "\\") {
+				return
+			}
+			for _, build := range builds {
+				if build == newBuildName {
+					return
+				}
+			}
+			err = addBuild(cfg.UserSavePath, newBuildName)
+			if err != nil {
+				log.Println(err)
+				w.SetContent(mainContainer)
+				return
+			}
+			builds = append(builds, newBuildName)
+			buildSelector = widget.NewSelect(builds, func(value string) {
+				log.Println("Select set to", value)
+				rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
+			})
+			buildSelector.SetSelected(newBuildName)
+			mainContainer = container.NewVBox(
+				toolbar,
+				buildSelector,
+				loadedBuildIndicator,
+				loadBtn,
+				rollbackBtn,
+			)
+			w.SetContent(mainContainer)
+			log.Println(newBuildName)
+		},
+		OnCancel: func() {
+			w.SetContent(mainContainer)
+		},
+	}
+	addForm.SubmitText = "Create"
 
 	loadedBuildIndicator = widget.NewLabel("Currently Loaded: " + cfg.CurrentBuild)
 	buildSelector = widget.NewSelect(builds, func(value string) {
 		log.Println("Select set to", value)
 		rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
 	})
-	// TODO: Add feature to branch from different saves.
-	addBtn = widget.NewButton("Add New Build", func() {
-		var popup *widget.PopUp
-		buildNameInput := widget.NewEntry()
 
-		form := &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "Build Name:", Widget: buildNameInput},
-				//{Widget: setAsActive},
-			},
-			OnSubmit: func() {
-				defer popup.Hide()
-				newBuildName := strings.Trim(buildNameInput.Text, " ")
-				// TODO: Handle user notification in error cases
-				if newBuildName == "" || strings.Contains(newBuildName, "\\") {
-					return
-				}
-				for _, build := range builds {
-					if build == newBuildName {
-						return
-					}
-				}
-				err = addBuild(cfg.UserSavePath, newBuildName)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				builds = append(builds, newBuildName)
-				buildSelector = widget.NewSelect(builds, func(value string) {
-					log.Println("Select set to", value)
-					rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
-				})
-				buildSelector.SetSelected(newBuildName)
-				mainContainer = container.NewVBox(
-					addBtn,
-					buildSelector,
-					loadedBuildIndicator,
-					loadBtn,
-					rollbackBtn,
-				)
-				w.SetContent(mainContainer)
-				log.Println(newBuildName)
-			},
-			OnCancel: func() {
-				popup.Hide()
-			},
-		}
-		form.SubmitText = "Create"
-
-		popup = widget.NewModalPopUp(container.NewVBox(
-			form,
-		), w.Canvas())
-
-		popup.Show()
-
-	})
 	loadBtn = widget.NewButton("Load", func() {
 		// TODO: Handle case of current == selected
 		if cfg.CurrentBuild == buildSelector.Selected {
@@ -171,9 +158,16 @@ func main() {
 
 	})
 
+	toolbar = widget.NewToolbar(
+		widget.NewToolbarAction(theme.SettingsIcon(), func() {
+			w.SetContent(&settingsForm)
+		}),
+		widget.NewToolbarAction(theme.ContentAddIcon(), func() {
+			w.SetContent(&addForm)
+		}))
+
 	mainContainer = container.NewVBox(
-		settingsBtn,
-		addBtn,
+		toolbar,
 		buildSelector,
 		loadedBuildIndicator,
 		loadBtn,
