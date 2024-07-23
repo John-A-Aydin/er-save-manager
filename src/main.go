@@ -33,30 +33,31 @@ func main() {
 	//// TODO: Handle error, likely dir not found
 	builds, _ := getBuilds(cfg.UserSavePath)
 
-	var rollbackBtn *widget.Button
+	var mainContainer *fyne.Container
+	var toolbar *widget.Toolbar
 	var loadedBuildIndicator *widget.Label
 	var buildSelector *widget.Select
 	var loadBtn *widget.Button
-	var mainContainer *fyne.Container
-	var toolbar *widget.Toolbar
+	var rollbackBtn *widget.Button
+
+	buildSelector = widget.NewSelect(builds, func(value string) {
+		log.Println("Select set to", value)
+		rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
+	})
 
 	gameSavePathEntry := widget.NewEntry()
 	gameSavePathEntry.SetPlaceHolder(cfg.GameSavePath)
 	playerSavePathEntry := widget.NewEntry()
 	playerSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
-	currentBuildSelector := widget.NewSelect(builds, func(value string) {
-		log.Println("Select set to", value)
-	})
-	currentBuildSelector.SetSelected(cfg.CurrentBuild)
 	settingsForm := widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Game Save Path:", Widget: gameSavePathEntry},
 			{Text: "User Save Path:", Widget: playerSavePathEntry},
-			{Text: "Currently Loaded Build:", Widget: currentBuildSelector},
+			{Text: "Currently Loaded Build:", Widget: buildSelector},
 		},
 		OnSubmit: func() {
 			log.Println(gameSavePathEntry.Text)
-			cfg.CurrentBuild = currentBuildSelector.Selected
+			cfg.CurrentBuild = buildSelector.Selected
 			loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
 			buildSelector.SetSelected(cfg.CurrentBuild)
 			w.SetContent(mainContainer)
@@ -72,7 +73,6 @@ func main() {
 	addForm := widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Build Name:", Widget: buildNameInput},
-			//{Widget: setAsActive},
 		},
 		OnSubmit: func() {
 			newBuildName := strings.Trim(buildNameInput.Text, " ")
@@ -94,7 +94,6 @@ func main() {
 			builds = append(builds, newBuildName)
 			buildSelector = widget.NewSelect(builds, func(value string) {
 				log.Println("Select set to", value)
-				rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
 			})
 			buildSelector.SetSelected(newBuildName)
 			mainContainer = container.NewVBox(
@@ -105,28 +104,90 @@ func main() {
 				rollbackBtn,
 			)
 			w.SetContent(mainContainer)
-			log.Println(newBuildName)
 		},
 		OnCancel: func() {
 			w.SetContent(mainContainer)
 		},
 	}
 	addForm.SubmitText = "Create"
+	deleteFormTextConfirmation := widget.NewEntry()
+	deleteFormTextConfirmation.SetPlaceHolder("Confirm by typing \"delete\"")
+	deleteForm := widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "", Widget: buildSelector},
+			{Text: "", Widget: deleteFormTextConfirmation},
+		},
+		OnSubmit: func() { // TODO: Actually delete the files
+			if deleteFormTextConfirmation.Text != "delete" {
+				return
+			}
+			buildToDelete := buildSelector.Selected
+			newSelectedBuild := buildSelector.Selected
+			if buildToDelete == cfg.CurrentBuild {
+				err = loadFiles(cfg.UserSavePath+"\\ROOT", cfg.GameSavePath)
+				if err != nil {
+					log.Fatal(err)
+				}
+				loadedBuildIndicator.SetText("Currently Loaded: ROOT")
+				cfg.CurrentBuild = "ROOT"
+				err = writeConfig(cfg)
+				if err != nil {
+					log.Fatal(err)
+				}
+				newSelectedBuild = "ROOT"
+			}
+			idxToDelete := -1
+			for idx, build := range builds {
+				if build == buildToDelete {
+					idxToDelete = idx
+				}
+			}
+			if idxToDelete == -1 {
+				panic("BuildToDelete was not found")
+			}
+			builds = append(builds[:idxToDelete], builds[idxToDelete+1:]...)
+			err = deleteBuild(cfg.UserSavePath, buildToDelete)
+			if err != nil {
+				log.Fatal(err)
+			}
+			buildSelector = widget.NewSelect(builds, func(value string) {
+				log.Println("Select set to", value)
+			})
+			buildSelector.SetSelected(newSelectedBuild)
+			mainContainer = container.NewVBox(
+				toolbar,
+				buildSelector,
+				loadedBuildIndicator,
+				loadBtn,
+				rollbackBtn,
+			)
+			w.SetContent(mainContainer)
+		},
+		OnCancel: func() {
+			w.SetContent(mainContainer)
+		},
+	}
+	deleteForm.SubmitText = "Delete"
+	toolbar = widget.NewToolbar(
+		widget.NewToolbarAction(theme.SettingsIcon(), func() {
+			w.SetContent(&settingsForm)
+		}),
+		widget.NewToolbarAction(theme.ContentAddIcon(), func() {
+			w.SetContent(&addForm)
+		}),
+		widget.NewToolbarAction(theme.DeleteIcon(), func() {
+			w.SetContent(&deleteForm)
+		}),
+	)
 
 	loadedBuildIndicator = widget.NewLabel("Currently Loaded: " + cfg.CurrentBuild)
-	buildSelector = widget.NewSelect(builds, func(value string) {
-		log.Println("Select set to", value)
-		rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
-	})
 
 	loadBtn = widget.NewButton("Load", func() {
-		// TODO: Handle case of current == selected
 		if cfg.CurrentBuild == buildSelector.Selected {
 			return
 		}
 		cfg.CurrentBuild = buildSelector.Selected
 		loadedBuildIndicator.SetText("Currently Loaded: " + buildSelector.Selected)
-		currentBuildSelector.SetSelected(buildSelector.Selected)
 		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
@@ -139,7 +200,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-
 	})
 	rollbackBtn = widget.NewButton("Rollback to Previous Save", func() {
 		err = rollBackSave(cfg.UserSavePath + "\\" + cfg.CurrentBuild)
@@ -155,16 +215,7 @@ func main() {
 			popup.Show()
 			return
 		}
-
 	})
-
-	toolbar = widget.NewToolbar(
-		widget.NewToolbarAction(theme.SettingsIcon(), func() {
-			w.SetContent(&settingsForm)
-		}),
-		widget.NewToolbarAction(theme.ContentAddIcon(), func() {
-			w.SetContent(&addForm)
-		}))
 
 	mainContainer = container.NewVBox(
 		toolbar,

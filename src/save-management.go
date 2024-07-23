@@ -184,3 +184,8 @@ func addBuild(userSavePath string, newBuildName string) (err error) {
 	err = copyFileContents(userSavePath+"\\ROOT\\"+MainSteamFileName, userSavePath+"\\"+newBuildName+"\\"+MainSteamFileName)
 	return
 }
+
+func deleteBuild(userSavePath string, buildToDelete string) (err error) {
+	err = os.RemoveAll(userSavePath + "\\" + buildToDelete)
+	return
+}
