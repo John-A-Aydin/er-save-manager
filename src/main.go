@@ -60,22 +60,26 @@ func main() {
 			cfg.CurrentBuild = buildSelector.Selected
 			loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
 			buildSelector.SetSelected(cfg.CurrentBuild)
+			gameSavePathEntry.SetText("")
+			playerSavePathEntry.SetText("")
 			w.SetContent(mainContainer)
 		},
 		OnCancel: func() {
+			gameSavePathEntry.SetText("")
+			playerSavePathEntry.SetText("")
 			w.SetContent(mainContainer)
 		},
 	}
 	settingsForm.SubmitText = "Save"
 
 	// TODO: Add branching from different saves
-	buildNameInput := widget.NewEntry()
+	buildNameEntry := widget.NewEntry()
 	addForm := widget.Form{
 		Items: []*widget.FormItem{
-			{Text: "Build Name:", Widget: buildNameInput},
+			{Text: "Build Name:", Widget: buildNameEntry},
 		},
 		OnSubmit: func() {
-			newBuildName := strings.Trim(buildNameInput.Text, " ")
+			newBuildName := strings.Trim(buildNameEntry.Text, " ")
 			// TODO: Handle user notification in error cases
 			if newBuildName == "" || strings.Contains(newBuildName, "\\") {
 				return
@@ -103,9 +107,11 @@ func main() {
 				loadBtn,
 				rollbackBtn,
 			)
+			buildNameEntry.SetText("")
 			w.SetContent(mainContainer)
 		},
 		OnCancel: func() {
+			buildNameEntry.SetText("")
 			w.SetContent(mainContainer)
 		},
 	}
@@ -150,6 +156,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			deleteFormTextConfirmation.SetText("")
 			buildSelector = widget.NewSelect(builds, func(value string) {
 				log.Println("Select set to", value)
 			})
@@ -164,6 +171,7 @@ func main() {
 			w.SetContent(mainContainer)
 		},
 		OnCancel: func() {
+			deleteFormTextConfirmation.SetText("")
 			w.SetContent(mainContainer)
 		},
 	}
