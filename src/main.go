@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"image/color"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -36,194 +37,166 @@ func main() {
 	var mainContainer *fyne.Container
 	var toolbar *widget.Toolbar
 	var loadedBuildIndicator *widget.Label
-	var buildSelector *widget.Select
 	var loadBtn *widget.Button
 	var rollbackBtn *widget.Button
 	var addForm *widget.Form
 	var deleteForm *widget.Form
 	var settingsForm *widget.Form
 
-	var createSettingsForm func() *widget.Form
-	var createAddForm func() *widget.Form
-	var createDeleteForm func() *widget.Form
+	mainBuildSelector := widget.NewSelect(builds, func(value string) {})
+	settingsBuildSelector := widget.NewSelect(builds, func(value string) {})
+	deleteBuildSelector := widget.NewSelect(builds[1:], func(value string) {})
 
-	buildSelector = widget.NewSelect(builds, func(value string) {
-		log.Println("Select set to", value)
-		rollbackBtn.SetText("Rollback \"" + value + "\" to Previous Save")
-	})
+	mainBuildSelector.SetSelected(cfg.CurrentBuild)
+	settingsBuildSelector.SetSelected(cfg.CurrentBuild)
 
 	gameSavePathEntry := widget.NewEntry()
 	gameSavePathEntry.SetPlaceHolder(cfg.GameSavePath)
-	playerSavePathEntry := widget.NewEntry()
-	playerSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
-	createSettingsForm = func() *widget.Form {
-		return &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "Game Save Path:", Widget: gameSavePathEntry},
-				{Text: "User Save Path:", Widget: playerSavePathEntry},
-				{Text: "Currently Loaded Build:", Widget: buildSelector},
-			},
-			OnSubmit: func() {
-				log.Println(gameSavePathEntry.Text)
-				cfg.CurrentBuild = buildSelector.Selected
-				loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
-				buildSelector.SetSelected(cfg.CurrentBuild)
-				gameSavePathEntry.SetText("")
-				playerSavePathEntry.SetText("")
-				w.SetContent(mainContainer)
-			},
-			OnCancel: func() {
-				gameSavePathEntry.SetText("")
-				playerSavePathEntry.SetText("")
-				w.SetContent(mainContainer)
-			},
-		}
+	userSavePathEntry := widget.NewEntry()
+	userSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
+	settingsForm = &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Game Save Path:", Widget: gameSavePathEntry},
+			{Text: "User Save Path:", Widget: userSavePathEntry},
+			{Text: "Currently Loaded Build:", Widget: settingsBuildSelector},
+		},
+		OnSubmit: func() { // TODO: Notify user if the path is invalid
+			if gameSavePathEntry.Text != "" {
+				_, err = os.Stat(gameSavePathEntry.Text)
+				if err == nil {
+					cfg.GameSavePath = gameSavePathEntry.Text
+					gameSavePathEntry.SetText(cfg.GameSavePath)
+				}
+			}
+			if userSavePathEntry.Text != "" {
+				_, err = os.Stat(userSavePathEntry.Text)
+				if err == nil {
+					cfg.UserSavePath = userSavePathEntry.Text
+					userSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
+				}
+			}
+			cfg.CurrentBuild = settingsBuildSelector.Selected
+			err = writeConfig(cfg)
+			if err != nil {
+				log.Fatal(err)
+			}
+			loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
+			mainBuildSelector.SetSelected(cfg.CurrentBuild)
+			gameSavePathEntry.SetText("")
+			userSavePathEntry.SetText("")
+			w.SetContent(mainContainer)
+		},
+		OnCancel: func() {
+			gameSavePathEntry.SetText("")
+			userSavePathEntry.SetText("")
+			settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+			w.SetContent(mainContainer)
+		},
 	}
-
-	settingsForm = createSettingsForm()
 	settingsForm.SubmitText = "Save"
 
 	// TODO: Add branching from different saves
 	buildNameEntry := widget.NewEntry()
-	createAddForm = func() *widget.Form {
-		return &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "Build Name:", Widget: buildNameEntry},
-			},
-			OnSubmit: func() {
-				newBuildName := strings.Trim(buildNameEntry.Text, " ")
-				// TODO: Handle user notification in error cases
-				if newBuildName == "" || strings.Contains(newBuildName, "/") {
+	addForm = &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Build Name:", Widget: buildNameEntry},
+		},
+		OnSubmit: func() {
+			newBuildName := strings.Trim(buildNameEntry.Text, " ")
+			// TODO: Handle user notification in error cases
+			if newBuildName == "" || strings.Contains(newBuildName, "/") {
+				return
+			}
+			for _, build := range builds {
+				if build == newBuildName {
 					return
 				}
-				for _, build := range builds {
-					if build == newBuildName {
-						return
-					}
-				}
-				err = addBuild(cfg.UserSavePath, newBuildName)
-				if err != nil {
-					log.Println(err)
-					w.SetContent(mainContainer)
-					return
-				}
-				builds = append(builds, newBuildName)
-				buildSelector = widget.NewSelect(builds, func(value string) {
-					log.Println("Select set to", value)
-				})
-				buildSelector.SetSelected(newBuildName)
-				settingsForm = createSettingsForm()
-				deleteForm = createDeleteForm()
-				toolbar = widget.NewToolbar(
-					widget.NewToolbarAction(theme.SettingsIcon(), func() {
-						w.SetContent(settingsForm)
-					}),
-					widget.NewToolbarAction(theme.ContentAddIcon(), func() {
-						w.SetContent(addForm)
-					}),
-					widget.NewToolbarAction(theme.DeleteIcon(), func() {
-						w.SetContent(deleteForm)
-					}),
-				)
-				mainContainer = container.NewVBox(
-					toolbar,
-					buildSelector,
-					loadedBuildIndicator,
-					loadBtn,
-					rollbackBtn,
-				)
-				buildNameEntry.SetText("")
+			}
+			err = addBuild(cfg.UserSavePath, newBuildName)
+			if err != nil {
+				log.Println(err)
 				w.SetContent(mainContainer)
-			},
-			OnCancel: func() {
-				buildNameEntry.SetText("")
-				w.SetContent(mainContainer)
-			},
-		}
+				return
+			}
+			builds = append(builds, newBuildName)
+			mainBuildSelector.SetOptions(builds)
+			settingsBuildSelector.SetOptions(builds)
+			deleteBuildSelector.SetOptions(builds[1:])
+			buildNameEntry.SetText("")
+			w.SetContent(mainContainer)
+		},
+		OnCancel: func() {
+			buildNameEntry.SetText("")
+			w.SetContent(mainContainer)
+		},
 	}
-	addForm = createAddForm()
 
 	addForm.SubmitText = "Create"
 	deleteFormTextConfirmation := widget.NewEntry()
 	deleteFormTextConfirmation.SetPlaceHolder("Confirm by typing \"delete\"")
-	createDeleteForm = func() *widget.Form {
-		return &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "", Widget: buildSelector},
-				{Text: "", Widget: deleteFormTextConfirmation},
-			},
-			OnSubmit: func() { // TODO: Actually delete the files
-				if deleteFormTextConfirmation.Text != "delete" {
-					return
-				}
-				buildToDelete := buildSelector.Selected
-				newSelectedBuild := buildSelector.Selected
-				// TODO: Notify that the root build cannot be deleted
-				if buildToDelete == "ROOT" {
-					return
-				}
-				if buildToDelete == cfg.CurrentBuild {
-					err = loadFiles(cfg.UserSavePath+"/ROOT", cfg.GameSavePath)
-					if err != nil {
-						log.Fatal(err)
-					}
-					loadedBuildIndicator.SetText("Currently Loaded: ROOT")
-					cfg.CurrentBuild = "ROOT"
-					err = writeConfig(cfg)
-					if err != nil {
-						log.Fatal(err)
-					}
-					newSelectedBuild = "ROOT"
-				}
-				idxToDelete := -1
-				for idx, build := range builds {
-					if build == buildToDelete {
-						idxToDelete = idx
-					}
-				}
-				if idxToDelete == -1 {
-					panic("BuildToDelete was not found")
-				}
-				builds = append(builds[:idxToDelete], builds[idxToDelete+1:]...)
-				err = deleteBuild(cfg.UserSavePath, buildToDelete)
+	deleteForm = &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "", Widget: deleteBuildSelector},
+			{Text: "", Widget: deleteFormTextConfirmation},
+		},
+		OnSubmit: func() { // TODO: Actually delete the files
+			if deleteFormTextConfirmation.Text != "delete" {
+				return
+			}
+			buildToDelete := deleteBuildSelector.Selected
+			newSelectedBuild := mainBuildSelector.Selected
+			// TODO: Notify that the root build cannot be deleted
+			if buildToDelete == "ROOT" || buildToDelete == "" {
+				return
+			}
+			if buildToDelete == cfg.CurrentBuild {
+				err = loadFiles(cfg.UserSavePath+"/ROOT", cfg.GameSavePath)
 				if err != nil {
 					log.Fatal(err)
 				}
-				deleteFormTextConfirmation.SetText("")
-				buildSelector = widget.NewSelect(builds, func(value string) {
-					log.Println("Select set to", value)
-				})
-				buildSelector.SetSelected(newSelectedBuild)
-				settingsForm = createSettingsForm()
-				deleteForm = createDeleteForm()
-				toolbar = widget.NewToolbar(
-					widget.NewToolbarAction(theme.SettingsIcon(), func() {
-						w.SetContent(settingsForm)
-					}),
-					widget.NewToolbarAction(theme.ContentAddIcon(), func() {
-						w.SetContent(addForm)
-					}),
-					widget.NewToolbarAction(theme.DeleteIcon(), func() {
-						w.SetContent(deleteForm)
-					}),
-				)
-				mainContainer = container.NewVBox(
-					toolbar,
-					buildSelector,
-					loadedBuildIndicator,
-					loadBtn,
-					rollbackBtn,
-				)
-				w.SetContent(mainContainer)
-			},
-			OnCancel: func() {
-				deleteFormTextConfirmation.SetText("")
-				w.SetContent(mainContainer)
-			},
-		}
+				loadedBuildIndicator.SetText("Currently Loaded: ROOT")
+				cfg.CurrentBuild = "ROOT"
+				err = writeConfig(cfg)
+				if err != nil {
+					log.Fatal(err)
+				}
+				newSelectedBuild = "ROOT"
+			}
+			idxToDelete := -1
+			for idx, build := range builds {
+				if build == buildToDelete {
+					idxToDelete = idx
+				}
+			}
+			if idxToDelete == -1 {
+				panic("BuildToDelete was not found")
+			}
+			builds = append(builds[:idxToDelete], builds[idxToDelete+1:]...)
+			err = deleteBuild(cfg.UserSavePath, buildToDelete)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if newSelectedBuild == buildToDelete {
+				newSelectedBuild = "ROOT"
+			}
+			mainBuildSelector.SetOptions(builds)
+			mainBuildSelector.SetSelected(newSelectedBuild)
+			settingsBuildSelector.SetOptions(builds)
+			settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+			deleteBuildSelector.SetOptions(builds[1:])
+			deleteBuildSelector.ClearSelected()
+
+			deleteFormTextConfirmation.SetText("")
+			w.SetContent(mainContainer)
+		},
+		OnCancel: func() {
+			deleteFormTextConfirmation.SetText("")
+			deleteBuildSelector.ClearSelected()
+			w.SetContent(mainContainer)
+		},
 	}
-	deleteForm = createDeleteForm()
 	deleteForm.SubmitText = "Delete"
+
 	toolbar = widget.NewToolbar(
 		widget.NewToolbarAction(theme.SettingsIcon(), func() {
 			w.SetContent(settingsForm)
@@ -239,11 +212,12 @@ func main() {
 	loadedBuildIndicator = widget.NewLabel("Currently Loaded: " + cfg.CurrentBuild)
 
 	loadBtn = widget.NewButton("Load", func() {
-		if cfg.CurrentBuild == buildSelector.Selected {
+		if cfg.CurrentBuild == mainBuildSelector.Selected {
 			return
 		}
-		cfg.CurrentBuild = buildSelector.Selected
-		loadedBuildIndicator.SetText("Currently Loaded: " + buildSelector.Selected)
+		cfg.CurrentBuild = mainBuildSelector.Selected
+		loadedBuildIndicator.SetText("Currently Loaded: " + mainBuildSelector.Selected)
+		settingsBuildSelector.SetSelected(cfg.CurrentBuild)
 		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"/"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
@@ -275,13 +249,12 @@ func main() {
 
 	mainContainer = container.NewVBox(
 		toolbar,
-		buildSelector,
+		mainBuildSelector,
 		loadedBuildIndicator,
 		loadBtn,
 		rollbackBtn,
 	)
 
-	buildSelector.SetSelected(cfg.CurrentBuild)
 	w.SetContent(mainContainer)
 	w.Resize(fyne.NewSize(400, 300))
 
