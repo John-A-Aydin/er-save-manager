@@ -37,33 +37,33 @@ func getBuilds(path string) ([]string, error) {
 func saveChanges(src string, dest string) (err error) {
 	// Backup previous save
 	// TODO: Remove unnecessary blocking
-	err = copyFileContents(dest+"\\"+MainFileName, dest+"\\"+ErsmFileName)
+	err = copyFileContents(dest+"/"+MainFileName, dest+"/"+ErsmFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = copyFileContents(dest+"\\"+MainBackupFileName, dest+"\\"+ErsmBackupFileName)
+	err = copyFileContents(dest+"/"+MainBackupFileName, dest+"/"+ErsmBackupFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = copyFileContents(dest+"\\"+MainSteamFileName, dest+"\\"+ErsmSteamFileName)
+	err = copyFileContents(dest+"/"+MainSteamFileName, dest+"/"+ErsmSteamFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	// Moving files
-	err = copyFileContents(src+"\\"+MainFileName, dest+"\\"+MainFileName)
+	err = copyFileContents(src+"/"+MainFileName, dest+"/"+MainFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = copyFileContents(src+"\\"+MainBackupFileName, dest+"\\"+MainBackupFileName)
+	err = copyFileContents(src+"/"+MainBackupFileName, dest+"/"+MainBackupFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = copyFileContents(src+"\\"+MainSteamFileName, dest+"\\"+MainSteamFileName)
+	err = copyFileContents(src+"/"+MainSteamFileName, dest+"/"+MainSteamFileName)
 	if err != nil {
 		log.Println(err)
 		return
@@ -72,17 +72,17 @@ func saveChanges(src string, dest string) (err error) {
 }
 
 func loadFiles(src string, dest string) (err error) {
-	err = copyFileContents(src+"\\"+MainFileName, dest+"\\"+MainFileName)
+	err = copyFileContents(src+"/"+MainFileName, dest+"/"+MainFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = copyFileContents(src+"\\"+MainBackupFileName, dest+"\\"+MainBackupFileName)
+	err = copyFileContents(src+"/"+MainBackupFileName, dest+"/"+MainBackupFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	err = copyFileContents(src+"\\"+MainSteamFileName, dest+"\\"+MainSteamFileName)
+	err = copyFileContents(src+"/"+MainSteamFileName, dest+"/"+MainSteamFileName)
 	if err != nil {
 		log.Println(err)
 		return
@@ -91,12 +91,12 @@ func loadFiles(src string, dest string) (err error) {
 }
 
 func rollBackSave(savePath string) (err error) {
-	backupInfo, err := os.Stat(savePath + "\\" + ErsmFileName)
+	backupInfo, err := os.Stat(savePath + "/" + ErsmFileName)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	currentInfo, err := os.Stat(savePath + "\\" + MainFileName)
+	currentInfo, err := os.Stat(savePath + "/" + MainFileName)
 	if err != nil {
 		log.Println(err)
 		return
@@ -104,15 +104,15 @@ func rollBackSave(savePath string) (err error) {
 	if backupInfo.Size() != currentInfo.Size() {
 		return errors.New("mismatched file size")
 	}
-	err = copyFileContents(savePath+"\\"+ErsmFileName, savePath+"\\"+MainFileName)
+	err = copyFileContents(savePath+"/"+ErsmFileName, savePath+"/"+MainFileName)
 	if err != nil {
 		return
 	}
-	err = copyFileContents(savePath+"\\"+ErsmBackupFileName, savePath+"\\"+MainBackupFileName)
+	err = copyFileContents(savePath+"/"+ErsmBackupFileName, savePath+"/"+MainBackupFileName)
 	if err != nil {
 		return
 	}
-	err = copyFileContents(savePath+"\\"+ErsmSteamFileName, savePath+"\\"+MainSteamFileName)
+	err = copyFileContents(savePath+"/"+ErsmSteamFileName, savePath+"/"+MainSteamFileName)
 	return
 }
 
@@ -169,23 +169,23 @@ func readConfig() (cfg Config, err error) {
 }
 
 func addBuild(userSavePath string, newBuildName string) (err error) {
-	err = os.Mkdir(userSavePath+"\\"+newBuildName, 0777)
+	err = os.Mkdir(userSavePath+"/"+newBuildName, 0777)
 	if err != nil {
 		return
 	}
-	err = copyFileContents(userSavePath+"\\ROOT\\"+MainFileName, userSavePath+"\\"+newBuildName+"\\"+MainFileName)
+	err = copyFileContents(userSavePath+"/ROOT/"+MainFileName, userSavePath+"/"+newBuildName+"/"+MainFileName)
 	if err != nil {
 		return
 	}
-	err = copyFileContents(userSavePath+"\\ROOT\\"+MainBackupFileName, userSavePath+"\\"+newBuildName+"\\"+MainBackupFileName)
+	err = copyFileContents(userSavePath+"/ROOT/"+MainBackupFileName, userSavePath+"/"+newBuildName+"/"+MainBackupFileName)
 	if err != nil {
 		return
 	}
-	err = copyFileContents(userSavePath+"\\ROOT\\"+MainSteamFileName, userSavePath+"\\"+newBuildName+"\\"+MainSteamFileName)
+	err = copyFileContents(userSavePath+"/ROOT/"+MainSteamFileName, userSavePath+"/"+newBuildName+"/"+MainSteamFileName)
 	return
 }
 
 func deleteBuild(userSavePath string, buildToDelete string) (err error) {
-	err = os.RemoveAll(userSavePath + "\\" + buildToDelete)
+	err = os.RemoveAll(userSavePath + "/" + buildToDelete)
 	return
 }

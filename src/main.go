@@ -20,7 +20,7 @@ type Config struct {
 
 func main() {
 	a := app.New()
-	icon, err := fyne.LoadResourceFromPath("assets\\icon.png")
+	icon, err := fyne.LoadResourceFromPath("assets/icon.png")
 	a.SetIcon(icon)
 	w := a.NewWindow("Elden Ring Save Manager")
 
@@ -81,7 +81,7 @@ func main() {
 		OnSubmit: func() {
 			newBuildName := strings.Trim(buildNameEntry.Text, " ")
 			// TODO: Handle user notification in error cases
-			if newBuildName == "" || strings.Contains(newBuildName, "\\") {
+			if newBuildName == "" || strings.Contains(newBuildName, "/") {
 				return
 			}
 			for _, build := range builds {
@@ -130,7 +130,7 @@ func main() {
 			buildToDelete := buildSelector.Selected
 			newSelectedBuild := buildSelector.Selected
 			if buildToDelete == cfg.CurrentBuild {
-				err = loadFiles(cfg.UserSavePath+"\\ROOT", cfg.GameSavePath)
+				err = loadFiles(cfg.UserSavePath+"/ROOT", cfg.GameSavePath)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -196,7 +196,7 @@ func main() {
 		}
 		cfg.CurrentBuild = buildSelector.Selected
 		loadedBuildIndicator.SetText("Currently Loaded: " + buildSelector.Selected)
-		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
+		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"/"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -204,13 +204,13 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = loadFiles(cfg.UserSavePath+"\\"+cfg.CurrentBuild, cfg.GameSavePath)
+		err = loadFiles(cfg.UserSavePath+"/"+cfg.CurrentBuild, cfg.GameSavePath)
 		if err != nil {
 			log.Fatal(err)
 		}
 	})
 	rollbackBtn = widget.NewButton("Rollback to Previous Save", func() {
-		err = rollBackSave(cfg.UserSavePath + "\\" + cfg.CurrentBuild)
+		err = rollBackSave(cfg.UserSavePath + "/" + cfg.CurrentBuild)
 		if err != nil && err.Error() == "mismatched file size" {
 			var popup *widget.PopUp
 			popup = widget.NewModalPopUp(container.NewVBox(
