@@ -46,9 +46,11 @@ func main() {
 	mainBuildSelector := widget.NewSelect(builds, func(value string) {})
 	settingsBuildSelector := widget.NewSelect(builds, func(value string) {})
 	deleteBuildSelector := widget.NewSelect(builds[1:], func(value string) {})
+	addBuildSelector := widget.NewSelect(builds, func(value string) {})
 
 	mainBuildSelector.SetSelected(cfg.CurrentBuild)
 	settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+	addBuildSelector.SetSelected("ROOT")
 
 	gameSavePathEntry := widget.NewEntry()
 	gameSavePathEntry.SetPlaceHolder(cfg.GameSavePath)
@@ -95,16 +97,16 @@ func main() {
 	}
 	settingsForm.SubmitText = "Save"
 
-	// TODO: Add branching from different saves
 	buildNameEntry := widget.NewEntry()
 	addForm = &widget.Form{
 		Items: []*widget.FormItem{
 			{Text: "Build Name:", Widget: buildNameEntry},
+			{Text: "Build to Branch From:", Widget: addBuildSelector},
 		},
 		OnSubmit: func() {
 			newBuildName := strings.Trim(buildNameEntry.Text, " ")
 			// TODO: Handle user notification in error cases
-			if newBuildName == "" || strings.Contains(newBuildName, "/") {
+			if newBuildName == "" || strings.Contains(newBuildName, "/") || strings.Contains(newBuildName, "\\") {
 				return
 			}
 			for _, build := range builds {
@@ -112,7 +114,7 @@ func main() {
 					return
 				}
 			}
-			err = addBuild(cfg.UserSavePath, newBuildName)
+			err = addBuild(cfg.UserSavePath, addBuildSelector.Selected, newBuildName)
 			if err != nil {
 				log.Println(err)
 				w.SetContent(mainContainer)
@@ -122,6 +124,8 @@ func main() {
 			mainBuildSelector.SetOptions(builds)
 			settingsBuildSelector.SetOptions(builds)
 			deleteBuildSelector.SetOptions(builds[1:])
+			addBuildSelector.SetOptions(builds)
+			addBuildSelector.SetSelected("ROOT")
 			buildNameEntry.SetText("")
 			w.SetContent(mainContainer)
 		},
@@ -185,6 +189,7 @@ func main() {
 			settingsBuildSelector.SetSelected(cfg.CurrentBuild)
 			deleteBuildSelector.SetOptions(builds[1:])
 			deleteBuildSelector.ClearSelected()
+			addBuildSelector.SetOptions(builds)
 
 			deleteFormTextConfirmation.SetText("")
 			w.SetContent(mainContainer)
