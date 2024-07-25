@@ -24,7 +24,7 @@ func getBuilds(path string) ([]string, error) {
 	builds := []string{"ROOT"}
 	err := filepath.WalkDir(path, func(dirPath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		if d.IsDir() && dirPath != path && d.Name() != "ROOT" {
 			builds = append(builds, d.Name())
@@ -83,6 +83,29 @@ func loadFiles(src string, dest string) (err error) {
 		return
 	}
 	err = copyFileContents(src+"/"+MainSteamFileName, dest+"/"+MainSteamFileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	return
+}
+
+func createROOT(gameSavePath string, userSavePath string) (err error) {
+	err = os.MkdirAll(userSavePath+"\\ROOT", 0777)
+	if err != nil {
+		return
+	}
+	err = copyFileContents(gameSavePath+"\\"+MainFileName, userSavePath+"\\ROOT\\"+MainFileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	err = copyFileContents(gameSavePath+"\\"+MainBackupFileName, userSavePath+"\\ROOT\\"+MainBackupFileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	err = copyFileContents(gameSavePath+"\\"+MainSteamFileName, userSavePath+"\\ROOT\\"+MainSteamFileName)
 	if err != nil {
 		log.Println(err)
 		return
@@ -164,7 +187,6 @@ func readConfig() (cfg Config, err error) {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(cfg.CurrentBuild)
 	return cfg, err
 }
 

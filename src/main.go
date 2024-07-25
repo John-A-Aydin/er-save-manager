@@ -10,6 +10,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -21,7 +22,7 @@ type Config struct {
 
 func main() {
 	a := app.New()
-	icon, err := fyne.LoadResourceFromPath("assets/icon.png")
+	icon, err := fyne.LoadResourceFromPath("assets\\icon.png")
 	a.SetIcon(icon)
 	w := a.NewWindow("Elden Ring Save Manager")
 
@@ -31,7 +32,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//// TODO: Handle error, likely dir not found
+	// TODO: Handle error, likely dir not found
 	builds, _ := getBuilds(cfg.UserSavePath)
 
 	var mainContainer *fyne.Container
@@ -67,7 +68,7 @@ func main() {
 				_, err = os.Stat(gameSavePathEntry.Text)
 				if err == nil {
 					cfg.GameSavePath = gameSavePathEntry.Text
-					gameSavePathEntry.SetText(cfg.GameSavePath)
+					gameSavePathEntry.SetPlaceHolder(cfg.GameSavePath)
 				}
 			}
 			if userSavePathEntry.Text != "" {
@@ -75,6 +76,15 @@ func main() {
 				if err == nil {
 					cfg.UserSavePath = userSavePathEntry.Text
 					userSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
+					builds, _ = getBuilds(cfg.UserSavePath)
+					mainBuildSelector.SetOptions(builds)
+					settingsBuildSelector.SetOptions(builds)
+					deleteBuildSelector.SetOptions(builds[1:])
+					addBuildSelector.SetOptions(builds)
+
+					mainBuildSelector.SetSelected(cfg.CurrentBuild)
+					settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+					addBuildSelector.SetSelected("ROOT")
 				}
 			}
 			cfg.CurrentBuild = settingsBuildSelector.Selected
@@ -106,7 +116,7 @@ func main() {
 		OnSubmit: func() {
 			newBuildName := strings.Trim(buildNameEntry.Text, " ")
 			// TODO: Handle user notification in error cases
-			if newBuildName == "" || strings.Contains(newBuildName, "/") || strings.Contains(newBuildName, "\\") {
+			if newBuildName == "" || strings.Contains(newBuildName, "\\") || strings.Contains(newBuildName, "\\") {
 				return
 			}
 			for _, build := range builds {
@@ -154,7 +164,7 @@ func main() {
 				return
 			}
 			if buildToDelete == cfg.CurrentBuild {
-				err = loadFiles(cfg.UserSavePath+"/ROOT", cfg.GameSavePath)
+				err = loadFiles(cfg.UserSavePath+"\\ROOT", cfg.GameSavePath)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -223,7 +233,7 @@ func main() {
 		cfg.CurrentBuild = mainBuildSelector.Selected
 		loadedBuildIndicator.SetText("Currently Loaded: " + mainBuildSelector.Selected)
 		settingsBuildSelector.SetSelected(cfg.CurrentBuild)
-		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"/"+cfg.CurrentBuild)
+		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -231,13 +241,13 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = loadFiles(cfg.UserSavePath+"/"+cfg.CurrentBuild, cfg.GameSavePath)
+		err = loadFiles(cfg.UserSavePath+"\\"+cfg.CurrentBuild, cfg.GameSavePath)
 		if err != nil {
 			log.Fatal(err)
 		}
 	})
 	rollbackBtn = widget.NewButton("Rollback to Previous Save", func() {
-		err = rollBackSave(cfg.UserSavePath + "/" + cfg.CurrentBuild)
+		err = rollBackSave(cfg.UserSavePath + "\\" + cfg.CurrentBuild)
 		if err != nil && err.Error() == "mismatched file size" {
 			var popup *widget.PopUp
 			popup = widget.NewModalPopUp(container.NewVBox(
@@ -260,7 +270,67 @@ func main() {
 		rollbackBtn,
 	)
 
-	w.SetContent(mainContainer)
+	pathEntry := widget.NewEntry()
+	initializeUserSavePathForm := container.NewVBox(container.NewVBox(
+		widget.NewLabel("Create a folder to store your saves and paste the path below"),
+		pathEntry,
+		widget.NewButton("Save", func() {
+			if pathEntry.Text != "" {
+				_, err = os.Stat(pathEntry.Text)
+				if err != nil {
+					return
+				}
+				cfg.UserSavePath = pathEntry.Text
+			}
+			_ = writeConfig(cfg)
+			builds, _ = getBuilds(cfg.UserSavePath)
+
+			mainBuildSelector.SetOptions(builds)
+			settingsBuildSelector.SetOptions(builds)
+			deleteBuildSelector.SetOptions(builds[1:])
+			addBuildSelector.SetOptions(builds)
+
+			mainBuildSelector.SetSelected(cfg.CurrentBuild)
+			settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+			addBuildSelector.SetSelected("ROOT")
+
+			userSavePathEntry.SetPlaceHolder(cfg.UserSavePath)
+
+			_, err = os.Stat(cfg.UserSavePath + "\\ROOT")
+			if err != nil {
+				_ = createROOT(cfg.GameSavePath, cfg.UserSavePath)
+			}
+
+			w.SetContent(mainContainer)
+		})))
+	if cfg.GameSavePath == "" {
+		usrDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		saveDir := usrDir + "\\AppData\\Roaming\\EldenRing"
+		entries, err := os.ReadDir(saveDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, entry := range entries {
+			// The target folder is a numeric SteamID
+			_, err = strconv.Atoi(entry.Name())
+			if entry.IsDir() && err == nil {
+				saveDir = saveDir + "\\" + entry.Name()
+				break
+			}
+		}
+		cfg.GameSavePath = saveDir
+		gameSavePathEntry.SetPlaceHolder(saveDir)
+		_ = writeConfig(cfg)
+	}
+	if cfg.UserSavePath == "" {
+		w.SetContent(initializeUserSavePathForm)
+	} else {
+		w.SetContent(mainContainer)
+	}
+
 	w.Resize(fyne.NewSize(400, 300))
 
 	w.ShowAndRun()
