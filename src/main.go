@@ -214,6 +214,9 @@ func main() {
 		widget.NewToolbarAction(theme.SettingsIcon(), func() {
 			w.SetContent(settingsForm)
 		}),
+		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
+			_ = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
+		}),
 		widget.NewToolbarAction(theme.ContentAddIcon(), func() {
 			w.SetContent(addForm)
 		}),
