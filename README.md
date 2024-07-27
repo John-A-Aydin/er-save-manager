@@ -1,4 +1,4 @@
 
 ## Installation
 
-Please refer to the [Installation Guide](INSTALL.md)
+Please refer to the [Installation Guide](installation/INSTALL.md)
