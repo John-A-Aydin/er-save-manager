@@ -10,15 +10,8 @@ import (
 	"image/color"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 )
-
-type Config struct {
-	GameSavePath string `yaml:"game-save-path"`
-	UserSavePath string `yaml:"user-save-path"`
-	CurrentBuild string `yaml:"current-build"`
-}
 
 func main() {
 	a := app.New()
@@ -26,10 +19,15 @@ func main() {
 	a.SetIcon(icon)
 	w := a.NewWindow("Elden Ring Save Manager")
 
+	if !findConfig() {
+		err = createConfig()
+		if err != nil {
+			panic(err)
+		}
+	}
 	cfg, err := readConfig()
 	if err != nil {
-		log.Println("Unable to read config file")
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// TODO: Handle error, likely dir not found
@@ -282,7 +280,6 @@ func main() {
 				}
 				cfg.UserSavePath = pathEntry.Text
 			}
-			_ = writeConfig(cfg)
 			builds, _ = getBuilds(cfg.UserSavePath)
 
 			mainBuildSelector.SetOptions(builds)
@@ -300,31 +297,12 @@ func main() {
 			if err != nil {
 				_ = createROOT(cfg.GameSavePath, cfg.UserSavePath)
 			}
-
+			err = writeConfig(cfg)
+			if err != nil {
+				log.Fatal(err)
+			}
 			w.SetContent(mainContainer)
 		})))
-	if cfg.GameSavePath == "" {
-		usrDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		saveDir := usrDir + "\\AppData\\Roaming\\EldenRing"
-		entries, err := os.ReadDir(saveDir)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, entry := range entries {
-			// The target folder is a numeric SteamID
-			_, err = strconv.Atoi(entry.Name())
-			if entry.IsDir() && err == nil {
-				saveDir = saveDir + "\\" + entry.Name()
-				break
-			}
-		}
-		cfg.GameSavePath = saveDir
-		gameSavePathEntry.SetPlaceHolder(saveDir)
-		_ = writeConfig(cfg)
-	}
 	if cfg.UserSavePath == "" {
 		w.SetContent(initializeUserSavePathForm)
 	} else {

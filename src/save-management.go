@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"gopkg.in/yaml.v3"
 	"io"
 	"io/fs"
 	"log"
@@ -17,12 +16,11 @@ const (
 	ErsmFileName       = "ERSM_backup.sl2"
 	ErsmBackupFileName = "ERSM_backup.sl2.bak"
 	ErsmSteamFileName  = "ERSM_steam.vdf"
-	ConfigFileName     = "config.yaml"
 )
 
-func getBuilds(path string) ([]string, error) {
-	builds := []string{"ROOT"}
-	err := filepath.WalkDir(path, func(dirPath string, d fs.DirEntry, err error) error {
+func getBuilds(path string) (builds []string, err error) {
+	builds = []string{"ROOT"}
+	err = filepath.WalkDir(path, func(dirPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -31,7 +29,7 @@ func getBuilds(path string) ([]string, error) {
 		}
 		return err
 	})
-	return builds, err
+	return
 }
 
 func saveChanges(src string, dest string) (err error) {
@@ -83,16 +81,17 @@ func loadFiles(src string, dest string) (err error) {
 		return
 	}
 	err = copyFileContents(src+"/"+MainSteamFileName, dest+"/"+MainSteamFileName)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 	return
 }
 
 func createROOT(gameSavePath string, userSavePath string) (err error) {
+	_, err = os.Stat(userSavePath + "\\ROOT")
+	if err == nil {
+		return
+	}
 	err = os.MkdirAll(userSavePath+"\\ROOT", 0777)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	err = copyFileContents(gameSavePath+"\\"+MainFileName, userSavePath+"\\ROOT\\"+MainFileName)
@@ -106,10 +105,6 @@ func createROOT(gameSavePath string, userSavePath string) (err error) {
 		return
 	}
 	err = copyFileContents(gameSavePath+"\\"+MainSteamFileName, userSavePath+"\\ROOT\\"+MainSteamFileName)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 	return
 }
 
@@ -129,10 +124,12 @@ func rollBackSave(savePath string) (err error) {
 	}
 	err = copyFileContents(savePath+"/"+ErsmFileName, savePath+"/"+MainFileName)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	err = copyFileContents(savePath+"/"+ErsmBackupFileName, savePath+"/"+MainBackupFileName)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	err = copyFileContents(savePath+"/"+ErsmSteamFileName, savePath+"/"+MainSteamFileName)
@@ -158,49 +155,26 @@ func copyFileContents(src string, dest string) (err error) {
 		}
 	}()
 	if _, err = io.Copy(out, in); err != nil {
-		log.Println(err)
 		return
 	}
 	err = out.Sync()
 	return
 }
 
-func writeConfig(cfg Config) (err error) {
-	dat, err := yaml.Marshal(cfg)
-	if err != nil {
-		return
-	}
-	err = os.WriteFile(ConfigFileName, dat, 0644)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func readConfig() (cfg Config, err error) {
-	dat, err := os.ReadFile(ConfigFileName)
-	if err != nil {
-		log.Println(err)
-		return Config{}, err
-	}
-	err = yaml.Unmarshal([]byte(dat), &cfg)
-	if err != nil {
-		log.Println(err)
-	}
-	return cfg, err
-}
-
 func addBuild(userSavePath string, buildToBranchFrom string, newBuildName string) (err error) {
 	err = os.Mkdir(userSavePath+"/"+newBuildName, 0777)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	err = copyFileContents(userSavePath+"/"+buildToBranchFrom+"/"+MainFileName, userSavePath+"/"+newBuildName+"/"+MainFileName)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	err = copyFileContents(userSavePath+"/"+buildToBranchFrom+"/"+MainBackupFileName, userSavePath+"/"+newBuildName+"/"+MainBackupFileName)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	err = copyFileContents(userSavePath+"/"+buildToBranchFrom+"/"+MainSteamFileName, userSavePath+"/"+newBuildName+"/"+MainSteamFileName)
