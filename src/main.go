@@ -36,7 +36,8 @@ func main() {
 	var mainContainer *fyne.Container
 	var toolbar *widget.Toolbar
 	var loadedBuildIndicator *widget.Label
-	var loadBtn *widget.Button
+	var loadAndSaveBtn *widget.Button
+	var loadWithoutSaveBtn *widget.Button
 	var rollbackBtn *widget.Button
 	var addForm *widget.Form
 	var deleteForm *widget.Form
@@ -157,7 +158,6 @@ func main() {
 			}
 			buildToDelete := deleteBuildSelector.Selected
 			newSelectedBuild := mainBuildSelector.Selected
-			// TODO: Notify that the root build cannot be deleted
 			if buildToDelete == "ROOT" || buildToDelete == "" {
 				return
 			}
@@ -227,26 +227,41 @@ func main() {
 
 	loadedBuildIndicator = widget.NewLabel("Currently Loaded: " + cfg.CurrentBuild)
 
-	loadBtn = widget.NewButton("Load", func() {
-		if cfg.CurrentBuild == mainBuildSelector.Selected {
-			return
-		}
-		cfg.CurrentBuild = mainBuildSelector.Selected
-		loadedBuildIndicator.SetText("Currently Loaded: " + mainBuildSelector.Selected)
-		settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+	loadAndSaveBtn = widget.NewButton("Load + Save", func() {
 		err = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
 		if err != nil {
 			log.Fatal(err)
 		}
+		if cfg.CurrentBuild == mainBuildSelector.Selected {
+			return
+		}
+		cfg.CurrentBuild = mainBuildSelector.Selected
 		err = writeConfig(cfg)
 		if err != nil {
 			log.Fatal(err)
 		}
+		loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
+		settingsBuildSelector.SetSelected(cfg.CurrentBuild)
 		err = loadFiles(cfg.UserSavePath+"\\"+cfg.CurrentBuild, cfg.GameSavePath)
 		if err != nil {
 			log.Fatal(err)
 		}
 	})
+
+	loadWithoutSaveBtn = widget.NewButton("Load w/o Saving", func() {
+		cfg.CurrentBuild = mainBuildSelector.Selected
+		err = writeConfig(cfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		loadedBuildIndicator.SetText("Currently Loaded: " + cfg.CurrentBuild)
+		settingsBuildSelector.SetSelected(cfg.CurrentBuild)
+		err = loadFiles(cfg.UserSavePath+"\\"+cfg.CurrentBuild, cfg.GameSavePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
+
 	rollbackBtn = widget.NewButton("Rollback to Previous Save", func() {
 		err = rollBackSave(cfg.UserSavePath + "\\" + cfg.CurrentBuild)
 		if err != nil && err.Error() == "mismatched file size" {
@@ -267,7 +282,8 @@ func main() {
 		toolbar,
 		mainBuildSelector,
 		loadedBuildIndicator,
-		loadBtn,
+		loadAndSaveBtn,
+		loadWithoutSaveBtn,
 		rollbackBtn,
 	)
 
