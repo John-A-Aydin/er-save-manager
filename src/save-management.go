@@ -119,20 +119,46 @@ func rollBackSave(savePath string) (err error) {
 		log.Println(err)
 		return
 	}
-	if backupInfo.Size() != currentInfo.Size() {
-		return errors.New("mismatched file size")
+
+	if currentInfo.Size() != backupInfo.Size() {
+		return errors.New("invalid backup size")
 	}
-	err = copyFileContents(savePath+"\\"+ErsmFileName, savePath+"\\"+MainFileName)
+
+	err = os.Rename(savePath+"\\"+MainFileName, savePath+"\\temp.sl2")
 	if err != nil {
-		log.Println(err)
 		return
 	}
-	err = copyFileContents(savePath+"\\"+ErsmBackupFileName, savePath+"\\"+MainBackupFileName)
+	err = os.Rename(savePath+"\\"+MainBackupFileName, savePath+"\\temp.sl2.bak")
 	if err != nil {
-		log.Println(err)
 		return
 	}
-	err = copyFileContents(savePath+"\\"+ErsmSteamFileName, savePath+"\\"+MainSteamFileName)
+	err = os.Rename(savePath+"\\"+MainSteamFileName, savePath+"\\temp.vdf")
+	if err != nil {
+		return
+	}
+
+	err = os.Rename(savePath+"\\"+ErsmFileName, savePath+"\\"+MainFileName)
+	if err != nil {
+		return
+	}
+	err = os.Rename(savePath+"\\"+ErsmBackupFileName, savePath+"\\"+MainBackupFileName)
+	if err != nil {
+		return
+	}
+	err = os.Rename(savePath+"\\"+ErsmSteamFileName, savePath+"\\"+MainSteamFileName)
+	if err != nil {
+		return
+	}
+
+	err = os.Rename(savePath+"\\"+MainFileName, savePath+"\\"+ErsmFileName)
+	if err != nil {
+		return
+	}
+	err = os.Rename(savePath+"\\"+MainBackupFileName, savePath+"\\"+ErsmBackupFileName)
+	if err != nil {
+		return
+	}
+	err = os.Rename(savePath+"\\"+MainSteamFileName, savePath+"\\"+ErsmSteamFileName)
 	return
 }
 
