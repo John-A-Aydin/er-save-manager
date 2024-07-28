@@ -217,11 +217,11 @@ func main() {
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			_ = saveChanges(cfg.GameSavePath, cfg.UserSavePath+"\\"+cfg.CurrentBuild)
 		}),
-		widget.NewToolbarAction(theme.ContentAddIcon(), func() {
-			w.SetContent(addForm)
-		}),
 		widget.NewToolbarAction(theme.DeleteIcon(), func() {
 			w.SetContent(deleteForm)
+		}),
+		widget.NewToolbarAction(theme.ContentAddIcon(), func() {
+			w.SetContent(addForm)
 		}),
 	)
 
