@@ -7,7 +7,20 @@ It's possible to overwrite the contents of your root save file with another save
 
 ## Download
 
-Download the installer [here](https://downgit.github.io/#/home?url=https://github.com/John-A-Aydin/er-save-manager/blob/main/installation/ersm_setup.exe)
+Download windows the installer [here](https://downgit.github.io/#/home?url=https://github.com/John-A-Aydin/er-save-manager/blob/main/installation/ersm_setup.exe)
+
+If you're (rightfully) concerned about downloading an executable from GitHub, it should be relatively straightforward to make your own installer with [InstallForge](https://installforge.net/).
+
+Just build the executable with
+```console
+go build -ldflags -H=windowsgui src/main.go src/save-management.go src/config.go
+```
+and follow the basic steps to create the installer with your executable.
+
+If you want your build to have icons, make sure to use [icon64.png](icon64.png) in the assets folder in InstallForge.
+
+My InstallForge save file is in the build folder if you want to use it as a reference.
+
 
 ## Setup
 
@@ -19,7 +32,7 @@ Your root save file should be the one with the most weapons, items, or larval te
 ### Setup for users that already manage their save files
 
 If you already have a folder with your save files setup, rename your root save file to `ROOT`
-and make sure that each save has the following files
+and make sure that each save has the following files:
 - **`ER0000.sl2`**
 - **`ER0000.sl2.bak`**
 - **`steam_autocloud.vdf`**
