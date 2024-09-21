@@ -9,7 +9,7 @@ It's possible to overwrite the contents of your root save file with another save
 
 Download the windows installer [here](https://downgit.github.io/#/home?url=https://github.com/John-A-Aydin/er-save-manager/blob/main/installation/ersm_setup.exe)
 
-> [!WARN]
+> [!WARNING]
 > If you're (rightfully) concerned about downloading an executable from GitHub, it should be relatively straightforward to make your own installer with [InstallForge](https://installforge.net/).
 
 Just build the executable with
