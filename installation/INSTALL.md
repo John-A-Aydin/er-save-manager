@@ -17,7 +17,7 @@ go build -ldflags -H=windowsgui src/main.go src/save-management.go src/config.go
 ```
 and follow the basic steps to create the installer with your executable.
 
-If you want your build to have icons, make sure to use [icon64.png](icon64.png) in the assets folder in InstallForge.
+If you want your program to have icons, make sure to use [icon64.png](icon64.png) in the assets folder in InstallForge.
 
 My InstallForge save file is in the installation folder if you want to use it as a reference.
 
